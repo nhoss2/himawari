@@ -3,8 +3,8 @@
 all: clean run
 
 clean:
-	rm img/*.png
-	rm frames/*.png
+	rm -f img/*.png
+	rm -f frames/*.png
 
 run:
 	python app.py
