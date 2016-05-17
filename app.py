@@ -6,6 +6,7 @@ import subprocess
 import hashlib
 import binascii
 import shutil
+import time
 
 
 class SingleFrame(object):
@@ -13,6 +14,7 @@ class SingleFrame(object):
         self.dt = datetime
         self.x_range = x_range
         self.y_range = y_range
+        self.base_folder = frame_folder
 
         self.tmp_folder = os.path.join(frame_folder, 'img')
         self.output_folder = os.path.join(frame_folder, 'out')
@@ -48,7 +50,7 @@ class SingleFrame(object):
 
         self.montage_images()
         self.created = True
-        print('created frame: ' + self._output_path)
+        print('created frame: ' + str(self.dt))
 
         self.set_brightness_contrast()
         self.add_timestamp()
@@ -83,6 +85,10 @@ class SingleFrame(object):
             '-pointsize', '24', '-undercolor', '#00000080', '-gravity',
             'South', '-annotate', '+0+5', q_time.strftime('%H:%M %Z'),
             self.get_frame()])
+
+    def clean(self):
+        shutil.rmtree(self.base_folder)
+
 
 
 class SingleImage(object):
@@ -157,6 +163,10 @@ def create_video(frames):
 
     video_frames_dir = '/home/nafis/himawari8/app/video_frames'
 
+    if os.path.exists(video_frames_dir):
+        shutil.rmtree(video_frames_dir)
+        os.mkdir(video_frames_dir)
+
     frame_num = 0
 
     for frame in reversed(frames):
@@ -172,7 +182,7 @@ def create_video(frames):
 
         frame_num += 1
 
-    subprocess.call(['ffmpeg', '-framerate', '5', '-i',
+    subprocess.call(['ffmpeg', '-y', '-framerate', '5', '-i',
         os.path.join(video_frames_dir, '%03d.png'), '-r', '5', '-c:v',
         'libx264', '-pix_fmt', 'yuv420p', 'out.mp4'])
 
@@ -196,6 +206,7 @@ def tracker(hours):
     time_interval = dt.timedelta(minutes=10)
     frame_time = dt.datetime.now(pytz.timezone('UTC'))
 
+    # latest frame in 0th index, oldest at the end of list
     frames = []
 
     num_frames = hours * 6
@@ -206,9 +217,25 @@ def tracker(hours):
         frames.append(frame)
 
         frame_time = frame_time - time_interval
+
+    while True:
+        old_frame = frames.pop()
+        old_frame.clean()
+        rand_folder = gen_rand_folder(frames_folder)
+        frame_time = dt.datetime.now(pytz.timezone('UTC'))
+        print('frame_time', frame_time)
+        frame = SingleFrame(frame_time, x_range, y_range, rand_folder)
+        frames.insert(0, frame)
+
+        print 'creating video'
+        create_video(frames)
+
+        print 'created video, waiting 10 minutes'
+        time.sleep(60 * 10)
+
+
  
-    create_video(frames)
 
 
 if __name__ == '__main__':
-    tracker(2)
+    tracker(3)
