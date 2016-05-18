@@ -1,13 +1,9 @@
 .PHONY: clean run test
 
-all: clean run
-
-clean:
-	rm -rf frames/*
-	rm -f out.mp4
+all: run
 
 run:
-	python app.py
+	python himawari/app.py
 
 test:
 	py.test test
