@@ -1,4 +1,4 @@
-.PHONY: clean run test
+.PHONY: run test
 
 all: run
 

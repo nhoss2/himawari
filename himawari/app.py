@@ -51,6 +51,7 @@ class SingleFrame(object):
 
         self.montage_images()
         self.created = True
+        self.no_img = False
         print('created frame: ' + str(self.dt))
 
         self.set_brightness_contrast()
@@ -123,7 +124,7 @@ def create_video(frames, video_frames_dir, output_path):
 
     if os.path.exists(video_frames_dir):
         shutil.rmtree(video_frames_dir)
-        os.mkdir(video_frames_dir)
+    os.mkdir(video_frames_dir)
 
     frame_num = 0
 
@@ -140,12 +141,12 @@ def create_video(frames, video_frames_dir, output_path):
 
         frame_num += 1
 
-    subprocess.call(['ffmpeg', '-y', '-framerate', '5', '-i',
-        os.path.join(video_frames_dir, '%03d.png'), '-r', '5', '-c:v',
-        'libx264', '-pix_fmt', 'yuv420p', output_path])
+    subprocess.call(['ffmpeg', '-y', '-nostats', '-loglevel', '0', '-framerate',
+        '5', '-i', os.path.join(video_frames_dir, '%03d.png'), '-r', '5',
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', output_path])
 
 def gen_rand_folder(base_path):
-    folder_name = str(binascii.hexlify(os.urandom(8)))
+    folder_name = binascii.hexlify(os.urandom(8)).decode()
 
 
     folder_path = os.path.join(base_path, folder_name)
@@ -166,9 +167,6 @@ def tracker(hours, base_dir):
     os.makedirs(frames_folder)
 
     video_frames_dir = os.path.join(base_dir, 'data', 'video_frames')
-    if os.path.exists(video_frames_dir):
-        shutil.rmtree(video_frames_dir)
-    os.makedirs(video_frames_dir)
 
     video_path = os.path.join(base_dir, 'data', 'out.mp4')
 
@@ -180,7 +178,7 @@ def tracker(hours, base_dir):
 
     num_frames = hours * 6
 
-    for i in range(num_frames):
+    for i in range(1, num_frames + 1):
         rand_folder = gen_rand_folder(frames_folder)
 
         frame = SingleFrame(frame_time - time_interval * i, x_range, y_range, rand_folder)
@@ -191,15 +189,20 @@ def tracker(hours, base_dir):
         old_frame = frames.pop()
         old_frame.clean()
         rand_folder = gen_rand_folder(frames_folder)
-        frame_time = dt.datetime.now(pytz.timezone('UTC'))
         print('frame_time', frame_time)
         frame = SingleFrame(frame_time, x_range, y_range, rand_folder)
         frames = [frame] + frames
+
+        print('frames length: ' + str(len(frames)))
+
         print('creating video')
+
         create_video(frames, video_frames_dir, video_path)
 
         print('created video, waiting 10 minutes')
+        print('-----------------------------------------')
         time.sleep(60 * 10)
+        frame_time = frame_time + time_interval
 
 
 if __name__ == '__main__':
