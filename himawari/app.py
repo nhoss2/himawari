@@ -7,6 +7,7 @@ import hashlib
 import binascii
 import shutil
 import time
+import sys
 
 
 class SingleFrame(object):
@@ -42,7 +43,7 @@ class SingleFrame(object):
                     self.no_img = True
                     return
 
-                with open(img_path, 'w') as png_file:
+                with open(img_path, 'wb') as png_file:
                     png_file.write(img.get_image())
 
                 img_num += 1
@@ -100,7 +101,7 @@ class SingleImage(object):
 
     def get_image(self):
         if self.img == None:
-            url = gen_url(self.dt, self.x, self.y)
+            url = self.gen_url(self.dt, self.x, self.y)
             r = requests.get(url)
             self.img = r.content
 
@@ -113,55 +114,12 @@ class SingleImage(object):
         return img_hash == no_img_hash
 
 
-def gen_url(datetime, x, y):
-    return 'http://himawari8-dl.nict.go.jp/himawari8/img/D531106/20d/550/' +\
-            datetime.strftime("%Y/%m/%d/%H") + datetime.strftime("%M")[:1] +\
-            '000_' + str(x) + '_' + str(y) + '.png'
+    def gen_url(self, datetime, x, y):
+        return 'http://himawari8-dl.nict.go.jp/himawari8/img/D531106/20d/550/' +\
+                datetime.strftime("%Y/%m/%d/%H") + datetime.strftime("%M")[:1] +\
+                '000_' + str(x) + '_' + str(y) + '.png'
 
-def get_image():
-    tz = pytz.timezone('UTC')
-
-    now = dt.datetime.now(tz)
-    now = now.replace(minute=int(str(now.minute)[:1] + '0'))
-    now = now.replace(hour=0,day=16)
-
-    frame_num = 0
-    frame_length = dt.timedelta(minutes=10)
-    for i in range(20):
-        img_num = 0
-        for y in range(14, 16):
-            for x in range(11, 13):
-                url = gen_url(now, x, y)
-                print(url)
-                r = requests.get(url)
-                img_num += 1
-                img_name = str(img_num).zfill(2) + '.png'
-                with open('img/' + img_name, 'w') as png:
-                    png.write(r.content)
-
-        frame_name = str(frame_num).zfill(2) + '.png'
-
-        subprocess.call(['montage', '-mode', 'concatenate', '-tile', '2x2',
-                         'img/*.png','frames/' + frame_name])
-
-        subprocess.call(['convert', 'frames/' + frame_name, '-brightness-contrast', '+15x+20',
-                        'frames/' + frame_name])
-
-        qld = pytz.timezone('Australia/Queensland')
-        q_time = now.astimezone(qld)
-
-        subprocess.call(['convert', 'frames/' + frame_name,
-        '-fill', 'white', '-pointsize', '18', '-undercolor',
-        '#00000080', '-gravity', 'South', '-annotate', '+0+5',
-        q_time.strftime('%H:%M %Z'), 'frames/' + frame_name])
-
-        frame_num += 1
-        now = now + frame_length
-        print(now)
-
-def create_video(frames):
-
-    video_frames_dir = '/home/nafis/himawari8/app/video_frames'
+def create_video(frames, video_frames_dir, output_path):
 
     if os.path.exists(video_frames_dir):
         shutil.rmtree(video_frames_dir)
@@ -184,10 +142,11 @@ def create_video(frames):
 
     subprocess.call(['ffmpeg', '-y', '-framerate', '5', '-i',
         os.path.join(video_frames_dir, '%03d.png'), '-r', '5', '-c:v',
-        'libx264', '-pix_fmt', 'yuv420p', 'out.mp4'])
+        'libx264', '-pix_fmt', 'yuv420p', output_path])
 
 def gen_rand_folder(base_path):
-    folder_name = binascii.hexlify(os.urandom(8))
+    folder_name = str(binascii.hexlify(os.urandom(8)))
+
 
     folder_path = os.path.join(base_path, folder_name)
 
@@ -197,11 +156,21 @@ def gen_rand_folder(base_path):
     return folder_path
 
 
-def tracker(hours):
+def tracker(hours, base_dir):
     x_range = [11, 12]
     y_range = [14, 15]
 
-    frames_folder = '/home/nafis/himawari8/app/frames'
+    frames_folder = os.path.join(base_dir, 'data', 'frames')
+    if os.path.exists(frames_folder):
+        shutil.rmtree(frames_folder)
+    os.makedirs(frames_folder)
+
+    video_frames_dir = os.path.join(base_dir, 'data', 'video_frames')
+    if os.path.exists(video_frames_dir):
+        shutil.rmtree(video_frames_dir)
+    os.makedirs(video_frames_dir)
+
+    video_path = os.path.join(base_dir, 'data', 'out.mp4')
 
     time_interval = dt.timedelta(minutes=10)
     frame_time = dt.datetime.now(pytz.timezone('UTC'))
@@ -214,10 +183,9 @@ def tracker(hours):
     for i in range(num_frames):
         rand_folder = gen_rand_folder(frames_folder)
 
-        frame = SingleFrame(frame_time, x_range, y_range, rand_folder)
-        frames.append(frame)
+        frame = SingleFrame(frame_time - time_interval * i, x_range, y_range, rand_folder)
 
-        frame_time = frame_time - time_interval
+        frames.append(frame)
 
     while True:
         old_frame = frames.pop()
@@ -227,15 +195,16 @@ def tracker(hours):
         print('frame_time', frame_time)
         frame = SingleFrame(frame_time, x_range, y_range, rand_folder)
         frames = [frame] + frames
-        print 'creating video'
-        create_video(frames)
+        print('creating video')
+        create_video(frames, video_frames_dir, video_path)
 
-        print 'created video, waiting 10 minutes'
+        print('created video, waiting 10 minutes')
         time.sleep(60 * 10)
 
 
- 
-
-
 if __name__ == '__main__':
-    tracker(3)
+
+    base_dir = os.path.realpath(os.path.join(
+        os.path.dirname(os.path.realpath(sys.argv[0])), '..'))
+
+    tracker(2, base_dir)
