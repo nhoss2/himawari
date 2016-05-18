@@ -213,6 +213,7 @@ def tracker(hours):
 
     for i in range(num_frames):
         rand_folder = gen_rand_folder(frames_folder)
+
         frame = SingleFrame(frame_time, x_range, y_range, rand_folder)
         frames.append(frame)
 
@@ -225,8 +226,7 @@ def tracker(hours):
         frame_time = dt.datetime.now(pytz.timezone('UTC'))
         print('frame_time', frame_time)
         frame = SingleFrame(frame_time, x_range, y_range, rand_folder)
-        frames.insert(0, frame)
-
+        frames = [frame] + frames
         print 'creating video'
         create_video(frames)
 
