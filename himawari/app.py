@@ -85,8 +85,8 @@ class SingleFrame(object):
 
         subprocess.call(['convert', self.get_frame(), '-fill', 'white',
             '-pointsize', '24', '-undercolor', '#00000080', '-gravity',
-            'South', '-annotate', '+0+5', q_time.strftime('%H:%M %Z'),
-            self.get_frame()])
+            'South', '-annotate', '+0+5', q_time.strftime('%H:%M')[:-1] + '0 '
+            + q_time.strftime('%Z'), self.get_frame()])
 
     def clean(self):
         shutil.rmtree(self.base_folder)
@@ -176,13 +176,12 @@ def tracker(hours, base_dir):
     # latest frame in 0th index, oldest at the end of list
     frames = []
 
-    num_frames = hours * 6
+    num_frames = int(hours * 6)
 
+    # create intial frames
     for i in range(1, num_frames + 1):
         rand_folder = gen_rand_folder(frames_folder)
-
         frame = SingleFrame(frame_time - time_interval * i, x_range, y_range, rand_folder)
-
         frames.append(frame)
 
     while True:
