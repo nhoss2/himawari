@@ -6,4 +6,4 @@ run:
 	python himawari/app.py
 
 test:
-	py.test test
+	py.test tests

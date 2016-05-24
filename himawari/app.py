@@ -8,6 +8,7 @@ import binascii
 import shutil
 import time
 import sys
+import tempfile
 
 
 class SingleFrame(object):
@@ -76,8 +77,12 @@ class SingleFrame(object):
             '+15x+20', self.get_frame()])
 
     def montage_images(self):
-        subprocess.call(['montage', '-mode', 'concatenate', '-tile', '2x2',
-            os.path.join(self.tmp_folder, '*.png'), self._output_path])
+        x_width = len(self.x_range)
+        y_width = len(self.y_range)
+
+        subprocess.call(['montage', '-mode', 'concatenate', '-tile',
+            str(x_width ) + 'x' + str(y_width), os.path.join(self.tmp_folder,
+            '*.png'), self._output_path])
 
     def add_timestamp(self):
         qld = pytz.timezone('Australia/Queensland')
@@ -102,7 +107,7 @@ class SingleImage(object):
 
     def get_image(self):
         if self.img == None:
-            url = self.gen_url(self.dt, self.x, self.y)
+            url = self.gen_url()
             r = requests.get(url)
             self.img = r.content
 
@@ -115,10 +120,10 @@ class SingleImage(object):
         return img_hash == no_img_hash
 
 
-    def gen_url(self, datetime, x, y):
+    def gen_url(self):
         return 'http://himawari8-dl.nict.go.jp/himawari8/img/D531106/20d/550/' +\
-                datetime.strftime("%Y/%m/%d/%H") + datetime.strftime("%M")[:1] +\
-                '000_' + str(x) + '_' + str(y) + '.png'
+                self.dt.strftime("%Y/%m/%d/%H") + self.dt.strftime("%M")[:1] +\
+                '000_' + str(self.x) + '_' + str(self.y) + '.png'
 
 def create_video(frames, video_frames_dir, output_path):
 
@@ -203,6 +208,26 @@ def tracker(hours, base_dir):
         time.sleep(60 * 10)
         frame_time = frame_time + time_interval
 
+
+def create_single_video(start_date, hours, x_range, y_range, output_path):
+    time_interval = dt.timedelta(minutes=10)
+    num_frames = int(hours * 6)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        frames_dir = os.path.join(temp_dir, 'frames')
+        video_frames_dir = os.path.join(temp_dir, 'video_frames')
+
+        frame_time = start_date
+        frames = []
+
+        for i in range(num_frames):
+            rand_folder = gen_rand_folder(frames_dir)
+            frame = SingleFrame(frame_time, x_range, y_range, rand_folder)
+            frames.append(frame)
+            frame_time = frame_time + time_interval
+
+        frames.reverse()
+        create_video(frames, video_frames_dir, output_path)
 
 if __name__ == '__main__':
 

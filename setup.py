@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(name='himawari',
       version='0.0.1',
-      description='Himawari8 satellite mosiac and video maker',
+      description='Himawari8 satellite mosaic and video maker',
       url='https://github.com/nhoss2/himawari',
       author='Nafis Hossain',
       author_email='nafis@labs.im',
